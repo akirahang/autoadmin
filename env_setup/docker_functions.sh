@@ -1,7 +1,199 @@
 #!/bin/bash
 
-# Docker 管理菜单
-show_docker_menu() {
+# WebDAV 配置路径
+WEBDAV_CONFIG_PATH="/root/.config/rclone/rclone.conf"
+WEBDAV_REMOTE="webdav_remote"  # WebDAV 远程配置名称
+
+# 定期备份的 Cron 配置文件路径
+CRON_FILE="/etc/cron.d/container_backup"
+
+# 检查 rclone 是否安装
+check_rclone_installed() {
+    if ! command -v rclone &> /dev/null; then
+        echo "未检测到 rclone，请安装 rclone。"
+        return 1
+    fi
+    echo "rclone 已安装"
+    return 0
+}
+
+# 检查 WebDAV 配置是否存在
+check_webdav_config() {
+    if [ ! -f "$WEBDAV_CONFIG_PATH" ]; then
+        echo "未检测到 WebDAV 配置，请创建配置。"
+        return 1
+    fi
+    echo "WebDAV 配置已存在"
+    return 0
+}
+
+# 创建 WebDAV 配置
+create_webdav_config() {
+    echo "开始创建 WebDAV 配置..."
+    rclone config create "$WEBDAV_REMOTE" webdav \
+        url "https://your-webdav-url" \
+        user "your-username" \
+        pass "your-password" \
+        --config "$WEBDAV_CONFIG_PATH" || {
+            echo "WebDAV 配置创建失败，请检查输入。"
+            return 1
+        }
+    echo "WebDAV 配置创建成功！"
+    return 0
+}
+
+# 选择 WebDAV 配置
+choose_webdav_config() {
+    echo "请选择已有的 WebDAV 配置："
+    rclone config list || {
+        echo "未能列出配置，请确保配置正确。"
+        return 1
+    }
+
+    read -p "请输入要使用的 WebDAV 配置名称: " chosen_config
+    # 检查用户输入的配置是否有效
+    rclone config file "$chosen_config" &>/dev/null || {
+        echo "配置无效，请检查配置名称。"
+        return 1
+    }
+
+    echo "您选择的配置是：$chosen_config"
+    return 0
+}
+
+# 容器备份到 WebDAV
+backup_container_to_webdav() {
+    # 确保 rclone 已安装
+    check_rclone_installed || exit 1
+
+    # 检查 WebDAV 配置是否存在
+    if ! check_webdav_config; then
+        # 如果没有配置，询问用户是否创建配置
+        read -p "是否创建新的 WebDAV 配置? (y/n): " create_choice
+        if [ "$create_choice" = "y" ]; then
+            create_webdav_config || exit 1
+        else
+            echo "无法继续，没有有效的 WebDAV 配置。"
+            exit 1
+        fi
+    fi
+
+    # 选择配置
+    choose_webdav_config || exit 1
+
+    # 获取要备份的容器信息
+    echo "请选择要备份的容器："
+    containers=($(docker ps -a -q))
+    if [ ${#containers[@]} -eq 0 ]; then
+        echo "没有找到任何容器。"
+        exit 1
+    fi
+
+    # 列出所有容器
+    for i in "${!containers[@]}"; do
+        container_id="${containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
+        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    done
+
+    read -p "请输入要备份的容器序号: " container_index
+    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
+        echo "无效的选择，请重试。"
+        exit 1
+    fi
+
+    container_id="${containers[$((container_index - 1))]}"
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
+    echo "您选择的容器是：ID: $container_id 名称: $container_name"
+
+    # 获取容器的挂载目录
+    echo "正在列出容器的挂载目录..."
+    mounts=$(docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source')
+    if [ -z "$mounts" ]; then
+        echo "容器没有映射的目录"
+        exit 1
+    fi
+
+    # WebDAV 备份路径
+    read -p "请输入 WebDAV 备份路径 (例如 /backup/): " webdav_path
+
+    # 遍历所有挂载目录进行备份
+    for mount_dir in $mounts; do
+        if [ -d "$mount_dir" ]; then
+            echo "正在备份目录 $mount_dir 到 WebDAV..."
+            rclone copy "$mount_dir" "$WEBDAV_REMOTE:$webdav_path" --progress || {
+                echo "备份失败，请检查网络或配置。"
+                exit 1
+            }
+            echo "备份完成：$mount_dir -> $WEBDAV_REMOTE:$webdav_path"
+        else
+            echo "目录 $mount_dir 不存在，跳过备份。"
+        fi
+    done
+}
+
+# 设置定期备份任务
+set_scheduled_backup() {
+    # 获取容器信息
+    containers=($(docker ps -a -q))
+    if [ ${#containers[@]} -eq 0 ]; then
+        echo "没有找到任何容器。"
+        exit 1
+    fi
+
+    echo "请选择要备份的容器："
+    for i in "${!containers[@]}"; do
+        container_id="${containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    done
+
+    read -p "请输入要备份的容器序号: " container_index
+    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
+        echo "无效的选择，请重试。"
+        exit 1
+    fi
+
+    container_id="${containers[$((container_index - 1))]}"
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+
+    # 获取容器的挂载目录
+    mounts=$(docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source')
+    if [ -z "$mounts" ]; then
+        echo "容器没有映射的目录"
+        exit 1
+    fi
+
+    # WebDAV 备份路径
+    read -p "请输入 WebDAV 备份路径 (例如 /backup/): " webdav_path
+
+    # 定期备份时间（例如每天凌晨3点备份）
+    read -p "请输入定期备份时间 (cron 格式，例如：0 3 * * * 表示每天凌晨 3 点): " cron_time
+
+    # 添加 Cron 任务
+    for mount_dir in $mounts; do
+        if [ -d "$mount_dir" ]; then
+            echo "$cron_time root rclone copy $mount_dir $WEBDAV_REMOTE:$webdav_path --progress" >> $CRON_FILE
+        fi
+    done
+    echo "定期备份任务已设置。"
+}
+
+# 删除定期备份任务
+delete_scheduled_backup() {
+    echo "正在列出当前的定期备份任务..."
+    crontab -l | grep -i "rclone copy" || {
+        echo "没有找到定期备份任务。"
+        return
+    }
+
+    read -p "请输入要删除的定期备份任务的行号: " task_number
+    crontab -l | sed "${task_number}d" | crontab -
+    echo "定期备份任务已删除。"
+}
+
+# 主菜单
+main_menu() {
     while true; do
         clear
         echo "==============================="
@@ -11,169 +203,25 @@ show_docker_menu() {
         echo "2. 启动容器"
         echo "3. 停止容器"
         echo "4. 删除容器"
-        echo "5. 快速部署云服务"
-        echo "6. 返回主菜单"
+        echo "5. 容器立即备份到 WebDAV"
+        echo "6. 设置定期备份"
+        echo "7. 删除定期备份任务"
+        echo "8. 退出"
         echo "==============================="
-        read -p "请选择一个选项 (1-6): " docker_choice
+        read -p "请选择一个选项 (1-8): " docker_choice
 
         case $docker_choice in
             1) list_all_containers ;;
             2) manage_docker_container start ;;
             3) manage_docker_container stop ;;
-            4) delete_container ;;
-            5) deploy_cloud_service ;;
-            6) return ;;
-            *) echo "无效选项，请重试"; sleep 2 ;;
+            4) manage_docker_container remove ;;
+            5) backup_container_to_webdav ;;
+            6) set_scheduled_backup ;;
+            7) delete_scheduled_backup ;;
+            8) exit 0 ;;
+            *) echo "无效选项，请重新选择。" ;;
         esac
     done
 }
 
-# 列出所有容器
-list_all_containers() {
-    docker ps -a
-    pause
-}
-
-# 管理 Docker 容器
-manage_docker_container() {
-    local action=$1
-    read -p "请输入容器ID或名称: " container_id
-    case $action in
-        start)
-            docker start "$container_id" && echo "容器 $container_id 已启动" ;;
-        stop)
-            docker stop "$container_id" && echo "容器 $container_id 已停止" ;;
-        delete)
-            delete_container ;;
-    esac
-    pause
-}
-
-# 删除容器及挂载目录和卷
-delete_container() {
-    echo "正在列出所有容器..."
-    containers=($(docker ps -a -q))
-    if [ ${#containers[@]} -eq 0 ]; then
-        echo "没有找到任何容器。"
-        pause
-        return
-    fi
-
-    echo "以下是所有容器的列表："
-    for i in "${!containers[@]}"; do
-        container_id="${containers[i]}"
-        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
-        echo "$((i + 1)). ID: $container_id 名称: $container_name"
-    done
-
-    read -p "请输入要删除的容器序号: " container_index
-    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
-        echo "无效的选择，请重试。"
-        pause
-        return
-    fi
-
-    container_id="${containers[$((container_index - 1))]}"
-    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
-    echo "您选择的容器是：ID: $container_id 名称: $container_name"
-
-    # 停止容器
-    echo "正在停止容器 $container_id..."
-    docker stop "$container_id" || { echo "停止容器失败"; return; }
-
-    read -p "是否删除该容器及挂载目录和卷 (y/n): " confirm
-    if [ "$confirm" = "y" ]; then
-        # 删除挂载目录
-        docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source' | while read -r mount; do
-            if [ -d "$mount" ]; then
-                rm -rf "$mount" && echo "已删除挂载目录：$mount"
-            fi
-        done
-    fi
-
-    # 删除容器
-    docker rm -v "$container_id" && echo "容器 $container_id 已删除" || echo "删除失败"
-    pause
-}
-
-# 快速部署云服务
-deploy_cloud_service() {
-    local compose_file="./docker_compose.yaml"
-
-    # 检查配置文件是否存在
-    if [ ! -f "$compose_file" ]; then
-        echo "配置文件未找到，请确保文件存在于当前目录中。"
-        pause
-        return
-    fi
-
-    echo "配置文件已找到，路径为 $compose_file"
-    echo "正在解析服务列表..."
-
-    # 使用 docker compose 或 docker-compose 命令获取服务名称
-    if command -v docker-compose &> /dev/null; then
-        # 如果系统中安装了 docker-compose
-        services=$(docker-compose -f "$compose_file" config --services)
-    elif command -v docker compose &> /dev/null; then
-        # 如果系统中安装了 docker compose
-        services=$(docker compose -f "$compose_file" config --services)
-    else
-        echo "未检测到 Docker Compose，请安装 Docker Compose。"
-        pause
-        return
-    fi
-
-    if [ -z "$services" ]; then
-        echo "未检测到任何服务，请检查配置文件内容。"
-        pause
-        return
-    fi
-
-    echo "以下是可用的服务列表："
-    IFS=$'\n' read -r -d '' -a service_array <<< "$services"
-    for i in "${!service_array[@]}"; do
-        echo "$((i + 1)). ${service_array[i]}"
-    done
-
-    read -p "请选择要部署的服务序号: " service_index
-    if ! [[ "$service_index" =~ ^[0-9]+$ ]] || [ "$service_index" -le 0 ] || [ "$service_index" -gt ${#service_array[@]} ]; then
-        echo "无效的选择，请重试。"
-        pause
-        return
-    fi
-
-    selected_service=${service_array[$((service_index - 1))]}
-    echo "正在部署服务: $selected_service"
-
-    # 使用 docker compose 或 docker-compose 命令部署选定服务
-    if command -v docker-compose &> /dev/null; then
-        # 如果系统中安装了 docker-compose
-        docker-compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
-    elif command -v docker compose &> /dev/null; then
-        # 如果系统中安装了 docker compose
-        docker compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
-    fi
-
-    if [ $? -eq 0 ]; then
-        echo "服务 $selected_service 部署成功。"
-        echo "服务端口："
-        docker inspect "$selected_service" | jq -r '.[].NetworkSettings.Ports | to_entries[] | "\(.key) -> \(.value[0].HostPort)"'
-    else
-        echo "服务部署失败。错误信息如下："
-        cat /tmp/docker_error.log
-    fi
-    pause
-}
-
-# 检查 Docker Compose 命令
-check_docker_compose_command
-
-# 启动主菜单
-show_main_menu
-
-
-# 暂停等待用户按键
-pause() {
-    read -p "按 Enter 键继续..."
-}
-
+main_menu
