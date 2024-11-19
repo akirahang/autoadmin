@@ -47,7 +47,7 @@ system_auto_setup() {
     case $os_type in
         ubuntu | debian)
             sudo apt update -y && sudo apt upgrade -y
-            sudo apt install -y sudo neofetch vim jq curl
+            sudo apt install -y sudo neofetch vim jq curl yq
             ;;
         *)
             echo "当前系统不支持，请手动安装依赖。"
