@@ -1,6 +1,7 @@
 version: "3"
 services:
 
+  # Portainer - Docker 管理工具
   portainer:
     image: portainer/portainer-ce:2.21.4
     container_name: portainer
@@ -13,6 +14,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/portainer:/data
 
+  # Minecraft 服务器
   mcserver:
     image: marctv/minecraft-papermc-server:latest
     container_name: mcserver
@@ -26,20 +28,22 @@ services:
       - 25565:25565
     tty: true
 
+  # 文件浏览器
   filebrowser:
     image: filebrowser/filebrowser
     container_name: filebrowser
-    volumes:
-      - /root/filebrowser:/data
+    restart: always
     ports:
       - "8090:80"
+    volumes:
+      - /root/filebrowser:/data
     environment:
       - DATA_DIR=/
-      - TZ=Asia/Shanghai  # 设置时区，根据需要调整
-      - USERNAME=admin  # 设置登录用户名
-      - PASSWORD=admin123  # 设置登录密码
-    restart: always
-    
+      - TZ=Asia/Shanghai  # 设置时区
+      - USERNAME=admin    # 设置登录用户名
+      - PASSWORD=admin123 # 设置登录密码
+
+  # ChatGPT Web
   chatgpt-web:
     image: chatgptweb/chatgpt-web:latest
     container_name: chatgpt_web
@@ -48,10 +52,11 @@ services:
       - "8000:8000"
     environment:
       - ACCESS_TOKEN=your_access_token  # 替换为您的 Access Token
-      
+
+  # AdGuardHome 广告过滤器
   adguardhome:
-    container_name: adguardhome
     image: adguard/adguardhome
+    container_name: adguardhome
     restart: unless-stopped
     volumes:
       - /root/adguardhome/work:/opt/adguardhome/work
@@ -61,6 +66,7 @@ services:
       - "53:53/udp"
       - "3000:3000/tcp"
 
+  # Alist 文件管理工具
   alist:
     image: xhofe/alist-aria2
     container_name: alist
@@ -69,11 +75,12 @@ services:
       - "5244:5244"
       - "6800:6800"
     environment:
-      - PUID=0        
-      - PGID=0      
+      - PUID=0
+      - PGID=0
     volumes:
       - /etc/alist:/opt/alist/data
-      
+
+  # aaPanel - 面板管理工具
   aapanel:
     image: aapanel/aapanel:lnmp
     container_name: aapanel
@@ -84,6 +91,7 @@ services:
       - /root/mysql_data:/www/server/data
       - /root/vhost:/www/server/panel/vhost
 
+  # Calibre Web - 电子书管理工具
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
     container_name: calibre-web
@@ -91,8 +99,6 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - DOCKER_MODS=linuxserver/mods:universal-calibre #optional
-      - OAUTHLIB_RELAX_TOKEN_SCOPE=1 #optional
     volumes:
       - /root/calibre-web/data:/config
       - /root/calibre-web/calibre/library:/books
@@ -100,6 +106,7 @@ services:
       - 8083:8083
     restart: unless-stopped
 
+  # KodBox - 文件管理工具
   kodbox:
     image: kodcloud/kodbox
     container_name: kodbox
@@ -109,6 +116,7 @@ services:
       - /root/kodbox:/var/www/html
     restart: unless-stopped
 
+  # Nginx Proxy Manager
   nginx:
     image: jc21/nginx-proxy-manager
     container_name: nginx
@@ -118,6 +126,7 @@ services:
       - /root/data:/data
       - /root/letsencrypt:/etc/letsencrypt
 
+  # qBittorrent 下载工具
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -136,6 +145,7 @@ services:
       - 6881:6881/udp
     restart: unless-stopped
 
+  # Qinglong - 自动化脚本
   qinglong:
     image: whyour/qinglong
     container_name: qinglong
@@ -146,15 +156,7 @@ services:
     volumes:
       - /root/ql/data:/ql/data
 
-  tor-privoxy:
-    image: dockage/tor-privoxy:latest
-    container_name: tor-privoxy
-    ports:
-      - 9050:9050
-      - 9051:9051
-      - 8118:8118
-    restart: unless-stopped
-
+  # Vaultwarden - 密码管理
   vaultwarden:
     image: vaultwarden/server:latest
     container_name: vaultwarden
@@ -164,10 +166,11 @@ services:
     ports:
       - 86:80
     environment:
-      - PUID=0        
-      - PGID=0        
+      - PUID=0
+      - PGID=0
       - DATABASE_URL=postgresql://vaultwarden_user:your_password@postgres:5432/vaultwarden_db
 
+  # Watchtower - 自动更新容器
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
@@ -176,6 +179,7 @@ services:
     restart: unless-stopped
     command: --cleanup
 
+  # WireGuard Easy - VPN
   wg-easy:
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
@@ -196,6 +200,7 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
 
+  # Photoprism - 照片管理工具
   photoprism:
     image: photoprism/photoprism
     container_name: photoprism
@@ -207,6 +212,7 @@ services:
       - /root/photoprism:/photoprism
     restart: unless-stopped
 
+  # Vocechat - 聊天工具
   vocechat:
     image: privoce/vocechat-server:latest
     container_name: vocechat-server
@@ -214,8 +220,9 @@ services:
     ports:
       - '3019:3000'
     volumes:
-      - '/root/vocechat:/home/vocechat-server/data' 
-    
+      - '/root/vocechat:/home/vocechat-server/data'
+
+  # XUI - 管理面板
   xui:
     image: enwaiax/x-ui:alpha-zh
     container_name: xui
@@ -223,8 +230,9 @@ services:
       - /root/xui/db/:/etc/x-ui/
       - /root/xui/cert/:/root/cert/
     restart: unless-stopped
-    network_mode: host    
-    
+    network_mode: host
+
+  # MySQL 数据库
   mysql:
     image: mysql:5.7
     container_name: mysql
@@ -233,23 +241,26 @@ services:
       MYSQL_ROOT_PASSWORD: admin123
     ports:
       - "3306:3306"
-    
+
+  # WordPress 网站
   wordpress:
     image: wordpress
     container_name: wordpress
     restart: unless-stopped
     ports:
-      - "8089:80"  
-      
+      - "8089:80"
+
+  # Nextcloud - 云存储
   nextcloud:
     image: linuxserver/nextcloud
     container_name: nextcloud
+    restart: unless-stopped
     ports:
       - "8095:80"
     volumes:
       - /root/nextcloud:/home/wwwroot/nextcloud
-    restart: unless-stopped
-    
+
+  # Synctv - 文件同步
   synctv:
     image: 'synctvorg/synctv:latest'
     container_name: synctv
@@ -268,7 +279,8 @@ services:
       - DATABASE_USER=root
       - DATABASE_PASSWORD=your_db_password
       - DATABASE_NAME=synctv
-      
+
+  # Redis 数据库
   redis:
     image: redis:latest
     container_name: redis
@@ -277,4 +289,4 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - /root/redis:/data      
+      - /root/redis:/data
