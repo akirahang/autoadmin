@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # 快速部署菜单
@@ -67,6 +66,9 @@ system_auto_setup() {
     echo "4. 设置 Swap 空间..."
     setup_swap
 
+    echo "5. 设置密钥登录并禁用密码登录..."
+    setup_ssh_key_auth
+
     echo "系统初始化已完成。"
 }
 
@@ -103,6 +105,29 @@ setup_swap() {
     echo "/swapfile swap swap defaults 0 0" | sudo tee -a /etc/fstab >/dev/null
 
     echo "Swap 设置完成，当前 Swap 空间: $(free -m | awk '/Swap/ {print $2}') MB"
+}
+
+# 设置 SSH 密钥登录并禁用密码登录
+setup_ssh_key_auth() {
+    local ssh_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzx8GlO5jVkNiwBG57J2zVwllC1WHQbRaFVI8H5u+fZnt3YuuIsCJBCRfM7/7Ups6wdEVwhgk+PEq8nE3WgZ8SBgNoAO+CgZprdDi+nx7zBRqrHw9oJcHQysiAw+arRW29g2TZgVhszjVq5G6MoVYGjnnPzLEcZS37by0l9eZD9u1hAB4FtIdw+VfrfJG177HLfiLkSm6PkO3QMWTYGmGjE3zpMxWeascWCn6UTDpjt6UiSMgcmAlx4FP8mkRRMc5TvxqnUKbgdjYBU2V+dZQx1keovrd0Yh8KitPEGd6euok3e7WmtLQlXH8WOiPlCr2YJfW3vQjlDVg5UU83GSGr root@mintcat"
+
+    echo "清除现有的授权密钥..."
+    sudo rm -rf ~/.ssh
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh
+
+    echo "添加新的公钥到 authorized_keys..."
+    echo "$ssh_key" > ~/.ssh/authorized_keys
+    chmod 600 ~/.ssh/authorized_keys
+
+    echo "修改 SSH 配置以禁用密码登录..."
+    sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+
+    echo "重启 SSH 服务以应用更改..."
+    sudo systemctl restart sshd
+
+    echo "SSH 密钥登录已配置，密码登录已禁用。"
 }
 
 # 暂停等待用户按键
