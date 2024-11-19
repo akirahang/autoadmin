@@ -53,6 +53,10 @@ manage_docker_container() {
             docker stop "$container_id" || echo "停止失败。"
             ;;
         remove)
+            # 停止容器
+            echo "正在停止容器 $container_name (ID: $container_id)..."
+            docker stop "$container_id" || { echo "停止容器失败。"; return; }
+
             # 删除容器挂载的目录
             echo "正在删除容器 $container_name (ID: $container_id)..."
             echo "正在列出容器的挂载目录..."
