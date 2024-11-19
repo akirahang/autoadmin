@@ -20,7 +20,7 @@ show_docker_menu() {
             1) list_all_containers ;;
             2) manage_docker_container start ;;
             3) manage_docker_container stop ;;
-            4) manage_docker_container delete ;;
+            4) delete_container ;;
             5) deploy_cloud_service ;;
             6) return ;;
             *) echo "无效选项，请重试"; sleep 2 ;;
@@ -44,23 +44,51 @@ manage_docker_container() {
         stop)
             docker stop "$container_id" && echo "容器 $container_id 已停止" ;;
         delete)
-            delete_container "$container_id" ;;
+            delete_container ;;
     esac
     pause
 }
 
 # 删除容器及挂载目录和卷
 delete_container() {
-    local container_id=$1
-    read -p "是否删除挂载目录和卷 (y/n): " confirm
+    echo "正在列出所有容器..."
+    containers=($(docker ps -a -q))
+    if [ ${#containers[@]} -eq 0 ]; then
+        echo "没有找到任何容器。"
+        pause
+        return
+    fi
+
+    echo "以下是所有容器的列表："
+    for i in "${!containers[@]}"; do
+        container_id="${containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
+        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    done
+
+    read -p "请输入要删除的容器序号: " container_index
+    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
+        echo "无效的选择，请重试。"
+        pause
+        return
+    fi
+
+    container_id="${containers[$((container_index - 1))]}"
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
+    echo "您选择的容器是：ID: $container_id 名称: $container_name"
+
+    read -p "是否删除该容器及挂载目录和卷 (y/n): " confirm
     if [ "$confirm" = "y" ]; then
+        # 删除挂载目录
         docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source' | while read -r mount; do
             if [ -d "$mount" ]; then
                 rm -rf "$mount" && echo "已删除挂载目录：$mount"
             fi
         done
     fi
+
     docker rm -v "$container_id" && echo "容器 $container_id 已删除" || echo "删除失败"
+    pause
 }
 
 # 快速部署云服务
