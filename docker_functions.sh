@@ -147,7 +147,6 @@ deploy_cloud_service() {
     pause
 }
 
-
 # 检查 Docker Compose 命令
 check_docker_compose_command
 
