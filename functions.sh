@@ -69,6 +69,9 @@ system_auto_setup() {
     echo "5. 设置密钥登录并禁用密码登录..."
     setup_ssh_key_auth
 
+    echo "6. 安装 Docker 和 Docker Compose..."
+    install_docker
+
     echo "系统初始化已完成。"
 }
 
@@ -92,6 +95,7 @@ setup_swap() {
     local total_disk_size=$(df --output=size / | tail -1)
     local swap_size=2048
 
+    # 如果硬盘小于 10GB，设置较小的 Swap 空间
     if [ "$total_disk_size" -lt 10240 ]; then
         swap_size=500
     fi
@@ -128,6 +132,22 @@ setup_ssh_key_auth() {
     sudo systemctl restart sshd
 
     echo "SSH 密钥登录已配置，密码登录已禁用。"
+}
+
+# 安装 Docker 和 Docker Compose
+install_docker() {
+    echo "正在安装 Docker 和 Docker Compose..."
+    
+    # 安装 Docker
+    curl -fsSL https://get.docker.com | bash -s docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    echo "Docker 安装完成。"
+
+    # 安装 Docker Compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    echo "Docker Compose 安装完成。"
 }
 
 # 暂停等待用户按键
