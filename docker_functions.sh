@@ -77,6 +77,10 @@ delete_container() {
     container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
     echo "您选择的容器是：ID: $container_id 名称: $container_name"
 
+    # 停止容器
+    echo "正在停止容器 $container_id..."
+    docker stop "$container_id" || { echo "停止容器失败"; return; }
+
     read -p "是否删除该容器及挂载目录和卷 (y/n): " confirm
     if [ "$confirm" = "y" ]; then
         # 删除挂载目录
@@ -87,6 +91,7 @@ delete_container() {
         done
     fi
 
+    # 删除容器
     docker rm -v "$container_id" && echo "容器 $container_id 已删除" || echo "删除失败"
     pause
 }
