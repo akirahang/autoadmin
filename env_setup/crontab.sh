@@ -6,7 +6,13 @@
 list_cron_jobs() {
     clear
     echo "当前的 Cron 任务列表："
-    crontab -l || echo "当前没有任何 Cron 任务。"
+    cron_jobs=$(crontab -l 2>/dev/null)
+    if [ -z "$cron_jobs" ]; then
+        echo "当前没有任何 Cron 任务。"
+    else
+        # 使用 grep 和 nl 添加行号
+        echo "$cron_jobs" | nl
+    fi
     pause
 }
 
@@ -30,17 +36,33 @@ add_cron_job() {
 delete_cron_job() {
     clear
     echo "当前的 Cron 任务列表："
-    crontab -l || { echo "当前没有任何 Cron 任务。"; pause; return; }
+    cron_jobs=$(crontab -l 2>/dev/null)
+    if [ -z "$cron_jobs" ]; then
+        echo "当前没有任何 Cron 任务。"
+        pause
+        return
+    fi
 
-    read -p "请输入要删除的任务的完整行内容: " job_to_remove
+    # 给每个 Cron 任务加上行号
+    echo "$cron_jobs" | nl
+
+    read -p "请输入要删除的任务序号: " job_index
+    if ! [[ "$job_index" =~ ^[0-9]+$ ]]; then
+        echo "无效的序号，请重新输入！"
+        pause
+        return
+    fi
+
+    # 获取删除的任务行号
+    job_to_remove=$(echo "$cron_jobs" | sed -n "${job_index}p" | sed 's/^[0-9]*[[:space:]]*//')
     if [[ -z "$job_to_remove" ]]; then
-        echo "输入不能为空！"
+        echo "没有找到该任务。"
         pause
         return
     fi
 
     # 删除任务
-    crontab -l | grep -v "$job_to_remove" | crontab -
+    crontab -l | grep -vF "$job_to_remove" | crontab -
     echo "任务已删除：$job_to_remove"
     pause
 }
