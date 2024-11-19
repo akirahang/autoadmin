@@ -96,26 +96,6 @@ delete_container() {
     pause
 }
 
-#!/bin/bash
-
-# 引用 functions.sh 和 docker_functions.sh
-source ./functions.sh
-source ./docker_functions.sh
-
-# 检测 Docker Compose 命令
-check_docker_compose_command() {
-    # 检查 docker-compose 是否存在（旧版）
-    if command -v docker-compose &> /dev/null; then
-        COMPOSE_CMD="docker-compose"
-    # 检查 docker compose 是否存在（新版）
-    elif command -v docker compose &> /dev/null; then
-        COMPOSE_CMD="docker compose"
-    else
-        echo "未找到 Docker Compose，请确保已安装 Docker Compose。"
-        exit 1
-    fi
-}
-
 # 快速部署云服务
 deploy_cloud_service() {
     local compose_file="./docker_compose.yaml"
