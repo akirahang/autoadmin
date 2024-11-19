@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 引用 functions.sh 和 docker_functions.sh
-source ./functions.sh
-source ./docker_functions.sh
+source ./env_setup/functions.sh
+source ./env_setup/docker_functions.sh
 
 # 主菜单函数
 show_main_menu() {
