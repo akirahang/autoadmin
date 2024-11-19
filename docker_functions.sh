@@ -100,12 +100,6 @@ delete_container() {
 deploy_cloud_service() {
     local compose_file="./docker_compose.yaml"
 
-    # 确保 docker-compose 命令正确设置
-    check_docker_compose_command
-
-    # 打印当前使用的 Docker Compose 命令，调试用
-    echo "使用的 Docker Compose 命令是：$COMPOSE_CMD"
-
     # 检查配置文件是否存在
     if [ ! -f "$compose_file" ]; then
         echo "配置文件未找到，请确保文件存在于当前目录中。"
@@ -116,8 +110,19 @@ deploy_cloud_service() {
     echo "配置文件已找到，路径为 $compose_file"
     echo "正在解析服务列表..."
 
-    # 使用合适的 Docker Compose 命令获取服务名称
-    services=$($COMPOSE_CMD -f "$compose_file" config --services)
+    # 使用 docker compose 或 docker-compose 命令获取服务名称
+    if command -v docker-compose &> /dev/null; then
+        # 如果系统中安装了 docker-compose
+        services=$(docker-compose -f "$compose_file" config --services)
+    elif command -v docker compose &> /dev/null; then
+        # 如果系统中安装了 docker compose
+        services=$(docker compose -f "$compose_file" config --services)
+    else
+        echo "未检测到 Docker Compose，请安装 Docker Compose。"
+        pause
+        return
+    fi
+
     if [ -z "$services" ]; then
         echo "未检测到任何服务，请检查配置文件内容。"
         pause
@@ -140,8 +145,15 @@ deploy_cloud_service() {
     selected_service=${service_array[$((service_index - 1))]}
     echo "正在部署服务: $selected_service"
 
-    # 使用合适的 Docker Compose 命令部署选定服务
-    $COMPOSE_CMD -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
+    # 使用 docker compose 或 docker-compose 命令部署选定服务
+    if command -v docker-compose &> /dev/null; then
+        # 如果系统中安装了 docker-compose
+        docker-compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
+    elif command -v docker compose &> /dev/null; then
+        # 如果系统中安装了 docker compose
+        docker compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
+    fi
+
     if [ $? -eq 0 ]; then
         echo "服务 $selected_service 部署成功。"
         echo "服务端口："
