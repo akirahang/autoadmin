@@ -222,4 +222,7 @@ main_menu() {
     done
 }
 
-main_menu
+# 暂停等待用户操作
+pause() {
+    read -p "按 Enter 键继续..."
+}
