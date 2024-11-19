@@ -98,20 +98,16 @@ delete_container() {
 
 # 快速部署云服务
 deploy_cloud_service() {
-    local compose_url="https://raw.githubusercontent.com/akirahang/autoadmin/refs/heads/main/docker_compose.yaml"
-    local compose_file="/tmp/docker_compose.yaml"
+    local compose_file="./docker_compose.yaml"  # 本地配置文件路径
 
-    # 检查配置文件是否存在，如果存在则先删除
-    if [ -f "$compose_file" ]; then
-        echo "配置文件已存在，正在删除..."
-        rm -f "$compose_file"
+    # 检查配置文件是否存在
+    if [ ! -f "$compose_file" ]; then
+        echo "配置文件 $compose_file 不存在，请确保文件存在。"
+        pause
+        return
     fi
 
-    echo "正在下载配置文件..."
-    # 下载配置文件
-    curl -fsSL "$compose_url" -o "$compose_file" || { echo "配置文件下载失败，请检查链接。"; pause; return; }
-
-    echo "配置文件已成功下载到 $compose_file"
+    echo "配置文件已找到，路径为 $compose_file"
     echo "正在解析服务列表..."
 
     # 使用 docker-compose config 获取服务名称
