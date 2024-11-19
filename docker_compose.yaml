@@ -36,7 +36,7 @@ services:
     ports:
       - "8090:80"
     volumes:
-      - /root/filebrowser:/data
+      - /:/data
     environment:
       - DATA_DIR=/
       - TZ=Asia/Shanghai  # 设置时区
