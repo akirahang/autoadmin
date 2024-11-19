@@ -124,3 +124,8 @@ port_forwarding_menu() {
     done
 }
 
+# 暂停等待用户按键
+pause() {
+    read -p "按 Enter 键继续..."
+}
+
