@@ -3,6 +3,10 @@
 # WebDAV 配置路径
 WEBDAV_CONFIG_PATH="/root/.config/rclone/rclone.conf"
 WEBDAV_REMOTE="webdav_remote"  # 默认的 WebDAV 远程配置名称
+BACKUP_DIR="/root/container_backup"  # 备份存放目录
+
+# 确保备份目录存在
+mkdir -p "$BACKUP_DIR"
 
 # 检查 rclone 是否安装
 check_rclone_installed() {
@@ -110,64 +114,78 @@ backup_container_to_webdav() {
     done
 }
 
-# 设置定期备份任务
-set_scheduled_backup() {
-    # 获取容器信息
-    containers=($(docker ps -a -q))
-    if [ ${#containers[@]} -eq 0 ]; then
-        echo "没有找到任何容器。"
+# 恢复容器
+restore_container_from_backup() {
+    echo "正在列出备份文件..."
+
+    # 列出备份文件
+    backups=($(ls $BACKUP_DIR/*.tar.gz))
+    if [ ${#backups[@]} -eq 0 ]; then
+        echo "没有找到备份文件。"
         exit 1
     fi
 
-    echo "请选择要备份的容器："
-    for i in "${!containers[@]}"; do
-        container_id="${containers[i]}"
-        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
-        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    # 显示备份文件供选择
+    for i in "${!backups[@]}"; do
+        backup_file="${backups[i]}"
+        echo "$((i + 1)). $backup_file"
     done
 
-    read -p "请输入要备份的容器序号: " container_index
-    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
+    read -p "请输入备份文件序号: " backup_index
+    if ! [[ "$backup_index" =~ ^[0-9]+$ ]] || [ "$backup_index" -le 0 ] || [ "$backup_index" -gt ${#backups[@]} ]; then
         echo "无效的选择，请重试。"
         exit 1
     fi
 
-    container_id="${containers[$((container_index - 1))]}"
-    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+    selected_backup="${backups[$((backup_index - 1))]}"
+    echo "您选择的备份文件是：$selected_backup"
 
-    # 获取容器的挂载目录
-    mounts=$(docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source')
-    if [ -z "$mounts" ]; then
-        echo "容器没有映射的目录"
+    # 获取正在运行的容器
+    echo "正在列出正在运行的容器..."
+    running_containers=($(docker ps -q))
+    if [ ${#running_containers[@]} -eq 0 ]; then
+        echo "没有正在运行的容器。"
         exit 1
     fi
 
-    # WebDAV 备份路径
-    read -p "请输入 WebDAV 备份路径 (例如 /backup/): " webdav_path
+    for i in "${!running_containers[@]}"; do
+        container_id="${running_containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+        echo "$((i + 1)). $container_name (ID: $container_id)"
+    done
 
-    # 定期备份时间（例如每天凌晨3点备份）
-    read -p "请输入定期备份时间 (cron 格式，例如：0 3 * * * 表示每天凌晨 3 点): " cron_time
+    read -p "请输入要恢复的容器序号: " container_index
+    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#running_containers[@]} ]; then
+        echo "无效的选择，请重试。"
+        exit 1
+    fi
 
-    # 添加 Cron 任务
-    for mount_dir in $mounts; do
-        if [ -d "$mount_dir" ]; then
-            echo "$cron_time root rclone copy $mount_dir $WEBDAV_REMOTE:$webdav_path --progress" >> /etc/cron.d/container_backup
+    container_id="${running_containers[$((container_index - 1))]}"
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+    echo "您选择的容器是：$container_name (ID: $container_id)"
+
+    # 停止并删除容器挂载目录
+    echo "正在停止容器 $container_name..."
+    docker stop "$container_id" || exit 1
+
+    echo "正在删除容器挂载目录..."
+    mounts=$(docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source')
+    for mount in $mounts; do
+        if [ -d "$mount" ]; then
+            rm -rf "$mount"
+            echo "删除目录：$mount"
         fi
     done
-    echo "定期备份任务已设置。"
-}
 
-# 删除定期备份任务
-delete_scheduled_backup() {
-    echo "正在列出当前的定期备份任务..."
-    crontab -l | grep -i "rclone copy" || {
-        echo "没有找到定期备份任务。"
-        return
-    }
+    # 恢复容器
+    echo "正在恢复容器 $container_name..."
+    docker start "$container_id" || exit 1
 
-    read -p "请输入要删除的定期备份任务的行号: " task_number
-    crontab -l | sed "${task_number}d" | crontab -
-    echo "定期备份任务已删除。"
+    # 解压备份文件
+    echo "正在解压备份文件 $selected_backup..."
+    tar -xvzf "$selected_backup" -C "/var/lib/docker/volumes/$container_name/_data" || exit 1
+
+    echo "恢复完成，容器已启动并恢复。"
 }
 
 # 主菜单
@@ -184,9 +202,10 @@ main_menu() {
         echo "5. 容器立即备份到 WebDAV"
         echo "6. 设置定期备份"
         echo "7. 删除定期备份任务"
-        echo "8. 退出"
+        echo "8. 恢复容器"
+        echo "9. 退出"
         echo "==============================="
-        read -p "请选择一个选项 (1-8): " docker_choice
+        read -p "请选择一个选项 (1-9): " docker_choice
 
         case $docker_choice in
             1) list_all_containers ;;
@@ -196,7 +215,8 @@ main_menu() {
             5) backup_container_to_webdav ;;
             6) set_scheduled_backup ;;
             7) delete_scheduled_backup ;;
-            8) exit 0 ;;
+            8) restore_container_from_backup ;;
+            9) exit 0 ;;
             *) echo "无效选项，请重新选择。" ;;
         esac
     done
