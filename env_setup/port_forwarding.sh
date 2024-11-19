@@ -13,7 +13,15 @@ install_nps() {
     # 克隆 NPS 项目
     mkdir -p "$NPS_DIR"
     cd "$NPS_DIR"
-    git clone https://github.com/ehang-io/nps.git . || { echo "克隆 NPS 代码失败"; exit 1; }
+    if [ ! -d ".git" ]; then
+        git clone https://github.com/ehang-io/nps.git . || { echo "克隆 NPS 代码失败"; exit 1; }
+    fi
+
+    # 检查并创建配置文件
+    if [ ! -f "conf/nps.conf" ]; then
+        echo "未找到 conf/nps.conf，正在创建默认配置..."
+        cp conf/nps.conf.example conf/nps.conf || { echo "配置文件创建失败！"; exit 1; }
+    fi
 
     # 交互式获取配置参数
     read -p "请输入 http_proxy_port 的值: " http_proxy_port
@@ -41,6 +49,9 @@ install_nps() {
 install_wireguard_easy() {
     echo "开始安装 WireGuard-Easy..."
     
+    # 检查 Docker 是否已安装
+    command -v docker >/dev/null 2>&1 || { echo "请先安装 Docker"; exit 1; }
+
     # 交互式获取配置参数
     read -p "请输入公网 IP: " WG_HOST
     read -p "请输入 WireGuard 管理账户密码: " WG_PASSWORD
@@ -77,7 +88,7 @@ EOF
 
     # 运行 WireGuard-Easy Docker 容器
     cd /root/wireguard
-    docker-compose up -d || { echo "启动 WireGuard-Easy 容器失败"; exit 1; }
+    docker compose up -d || { echo "启动 WireGuard-Easy 容器失败"; exit 1; }
 
     echo "WireGuard-Easy 安装完成！"
 }
@@ -104,28 +115,7 @@ port_forwarding_menu() {
     done
 }
 
-# 主菜单
-port_forwarding_menu() {
-    while true; do
-        clear
-        echo "==============================="
-        echo "      系统管理功能菜单         "
-        echo "==============================="
-        echo "1. 内网端口转发管理"
-        echo "2. 退出"
-        echo "==============================="
-        read -p "请选择一个选项 (1-2): " choice
-
-        case $choice in
-            1) port_forwarding_menu ;;  # 进入内网端口转发管理菜单
-            2) exit 0 ;;                # 退出
-            *) echo "无效选项，请重试"; sleep 2 ;;
-        esac
-    done
-}
-
 # 暂停等待用户按键
 pause() {
     read -p "按 Enter 键继续..."
 }
-
