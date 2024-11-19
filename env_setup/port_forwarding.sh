@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 获取本机公网 IP
+get_public_ip() {
+    # 使用第三方服务查询公网 IP
+    curl -s http://whatismyip.akamai.com || curl -s https://api.ipify.org || { echo "无法自动获取公网 IP，请手动输入"; read -p "请输入公网 IP: " MANUAL_IP; echo "$MANUAL_IP"; }
+}
+
 # NPS 安装和配置
 install_nps() {
     echo "开始安装 NPS..."
@@ -23,13 +29,21 @@ install_nps() {
         cp conf/nps.conf.example conf/nps.conf || { echo "配置文件创建失败！"; exit 1; }
     fi
 
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+
     # 交互式获取配置参数
-    read -p "请输入 http_proxy_port 的值: " http_proxy_port
-    read -p "请输入 https_proxy_port 的值: " https_proxy_port
+    echo "检测到公网 IP: $public_ip"
+    read -p "请确认或修改 http_proxy_port 的值 (默认 8080): " http_proxy_port
+    read -p "请确认或修改 https_proxy_port 的值 (默认 443): " https_proxy_port
     read -p "请输入 web_username 的值: " web_username
     read -p "请输入 web_password 的值: " web_password
-    read -p "请输入 web_ip 的值: " web_ip
     read -p "请输入 auth_crypt_key 的值: " auth_crypt_key
+
+    # 设置默认值
+    http_proxy_port=${http_proxy_port:-8080}
+    https_proxy_port=${https_proxy_port:-443}
+    web_ip=$public_ip
 
     # 修改配置文件
     sed -i "s/^http_proxy_port=.*$/http_proxy_port=${http_proxy_port}/" conf/nps.conf
@@ -42,7 +56,7 @@ install_nps() {
     # 运行 Docker 容器
     docker run -d --name nps --net=host -v "$NPS_DIR/conf":/conf --restart=always npscn/nps || { echo "启动 NPS 容器失败"; exit 1; }
 
-    echo "NPS 容器已启动，请访问 http://你的IP:8080 进行管理"
+    echo "NPS 容器已启动，请访问 http://${web_ip}:${http_proxy_port} 进行管理"
 }
 
 # WireGuard-Easy 安装和配置
@@ -52,8 +66,11 @@ install_wireguard_easy() {
     # 检查 Docker 是否已安装
     command -v docker >/dev/null 2>&1 || { echo "请先安装 Docker"; exit 1; }
 
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+
     # 交互式获取配置参数
-    read -p "请输入公网 IP: " WG_HOST
+    echo "检测到公网 IP: $public_ip"
     read -p "请输入 WireGuard 管理账户密码: " WG_PASSWORD
 
     # 默认 WireGuard 服务端口
@@ -70,7 +87,7 @@ services:
     image: weejewel/wg-easy
     container_name: wg-easy
     environment:
-      - WG_HOST=${WG_HOST}
+      - WG_HOST=${public_ip}
       - PASSWORD=${WG_PASSWORD}
       - WG_PORT=${WG_PORT}
     volumes:
@@ -92,10 +109,10 @@ EOF
     docker compose up -d || { echo "启动 WireGuard-Easy 容器失败"; exit 1; }
 
     echo "WireGuard-Easy 安装完成！请使用以下信息进行管理："
-    echo "  - 公网 IP: ${WG_HOST}"
+    echo "  - 公网 IP: ${public_ip}"
     echo "  - 管理密码: ${WG_PASSWORD}"
     echo "  - 服务端口: ${WG_PORT}"
-    echo "请访问 http://${WG_HOST}:51821 管理 WireGuard"
+    echo "请访问 http://${public_ip}:51821 管理 WireGuard"
 }
 
 # 内网端口转发管理菜单
