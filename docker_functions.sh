@@ -100,6 +100,12 @@ delete_container() {
 deploy_cloud_service() {
     local compose_file="./docker_compose.yaml"
 
+    # 确保 docker-compose 命令正确设置
+    check_docker_compose_command
+
+    # 打印当前使用的 Docker Compose 命令，调试用
+    echo "使用的 Docker Compose 命令是：$COMPOSE_CMD"
+
     # 检查配置文件是否存在
     if [ ! -f "$compose_file" ]; then
         echo "配置文件未找到，请确保文件存在于当前目录中。"
