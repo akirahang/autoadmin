@@ -1,5 +1,69 @@
 #!/bin/bash
 
+# 查看所有容器
+list_all_containers() {
+    echo "正在列出所有容器..."
+    containers=($(docker ps -a -q))
+    if [ ${#containers[@]} -eq 0 ]; then
+        echo "没有找到任何容器。"
+        return
+    fi
+
+    for i in "${!containers[@]}"; do
+        container_id="${containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')  # 获取容器名称
+        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    done
+    pause
+}
+
+# 管理容器：启动、停止、删除
+manage_docker_container() {
+    action=$1  # 获取操作：start、stop 或 remove
+    echo "请选择要操作的容器："
+    containers=($(docker ps -a -q))
+    if [ ${#containers[@]} -eq 0 ]; then
+        echo "没有找到任何容器。"
+        return
+    fi
+
+    # 列出所有容器供选择
+    for i in "${!containers[@]}"; do
+        container_id="${containers[i]}"
+        container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+        echo "$((i + 1)). ID: $container_id 名称: $container_name"
+    done
+
+    read -p "请输入容器序号: " container_index
+    if ! [[ "$container_index" =~ ^[0-9]+$ ]] || [ "$container_index" -le 0 ] || [ "$container_index" -gt ${#containers[@]} ]; then
+        echo "无效的选择，请重新选择。"
+        return
+    fi
+
+    container_id="${containers[$((container_index - 1))]}"
+    container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/^\///')
+
+    case $action in
+        start)
+            echo "正在启动容器 $container_name (ID: $container_id)..."
+            docker start "$container_id" || echo "启动失败。"
+            ;;
+        stop)
+            echo "正在停止容器 $container_name (ID: $container_id)..."
+            docker stop "$container_id" || echo "停止失败。"
+            ;;
+        remove)
+            echo "正在删除容器 $container_name (ID: $container_id)..."
+            docker rm "$container_id" || echo "删除失败。"
+            ;;
+        *)
+            echo "无效的操作。"
+            ;;
+    esac
+    pause
+}
+
+
 # WebDAV 配置路径
 WEBDAV_CONFIG_PATH="/root/.config/rclone/rclone.conf"
 WEBDAV_REMOTE="webdav_remote"  # 默认的 WebDAV 远程配置名称
