@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# 导入功能函数
-source functions.sh
+# 引用 functions.sh 和 docker_functions.sh
+source ./functions.sh
+source ./docker_functions.sh
 
 # 主菜单函数
 show_main_menu() {
