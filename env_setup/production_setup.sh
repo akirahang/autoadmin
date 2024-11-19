@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# 获取本机公网 IP，优先使用 IPv4
+get_public_ip() {
+    # 尝试获取 IPv4 地址
+    public_ip=$(curl -s4 http://whatismyip.akamai.com || curl -s4 https://api.ipify.org)
+    
+    # 如果没有 IPv4 地址，则尝试获取 IPv6 地址
+    if [ -z "$public_ip" ]; then
+        public_ip=$(curl -s6 http://whatismyip.akamai.com || curl -s6 https://api.ipify.org)
+    fi
+
+    # 返回公网 IP 地址
+    echo "$public_ip"
+}
+
 # 部署 Nginx Proxy Manager
 deploy_nginx() {
     echo "开始部署 Nginx Proxy Manager..."
@@ -9,7 +23,11 @@ deploy_nginx() {
         -v /root/data:/data \
         -v /root/letsencrypt:/etc/letsencrypt \
         --restart unless-stopped jc21/nginx-proxy-manager || { echo "Nginx 部署失败"; exit 1; }
-    echo "Nginx Proxy Manager 部署完成！"
+
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+    echo "Nginx Proxy Manager 部署完成！请访问 http://${public_ip}:81 进行管理"
+    
     pause
 }
 
@@ -24,7 +42,14 @@ deploy_mysql() {
         -v /root/mysql/data:/var/lib/mysql \
         -v /root/mysql/conf:/etc/mysql/conf.d \
         --restart unless-stopped mysql:5.7 || { echo "MySQL 部署失败"; exit 1; }
-    echo "MySQL 部署完成！"
+
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+    echo "MySQL 部署完成！请使用以下信息连接："
+    echo "  - 公网 IP: ${public_ip}"
+    echo "  - 端口: 3306"
+    echo "  - root 密码: ${MYSQL_ROOT_PASSWORD}"
+
     pause
 }
 
@@ -39,7 +64,14 @@ deploy_redis() {
         -v /root/redis:/data \
         redis:latest \
         redis-server --save 60 1 --loglevel warning --requirepass "$REDIS_PASSWORD" || { echo "Redis 部署失败"; exit 1; }
-    echo "Redis 部署完成！"
+
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+    echo "Redis 部署完成！请使用以下信息连接："
+    echo "  - 公网 IP: ${public_ip}"
+    echo "  - 端口: 6379"
+    echo "  - 密码: ${REDIS_PASSWORD}"
+
     pause
 }
 
