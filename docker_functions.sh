@@ -101,6 +101,12 @@ deploy_cloud_service() {
     local compose_url="https://raw.githubusercontent.com/akirahang/autoadmin/refs/heads/main/docker_compose.yaml"
     local compose_file="/tmp/docker_compose.yaml"
 
+    # 检查配置文件是否存在，如果存在则先删除
+    if [ -f "$compose_file" ]; then
+        echo "配置文件已存在，正在删除..."
+        rm -f "$compose_file"
+    fi
+
     echo "正在下载配置文件..."
     curl -fsSL "$compose_url" -o "$compose_file" || { echo "配置文件下载失败，请检查链接。"; pause; return; }
 
@@ -128,7 +134,7 @@ deploy_cloud_service() {
         return
     fi
 
-    selected_service=${service_array[$((service_index - 1))]}
+    selected_service=${service_array[$((service_index - 1))]}}
     echo "正在部署服务: $selected_service"
 
     # 部署选定服务
