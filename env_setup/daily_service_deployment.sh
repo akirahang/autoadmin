@@ -1,9 +1,15 @@
 #!/bin/bash
 
-# 获取本机公网IP
 get_public_ip() {
-    public_ip=$(curl -s ifconfig.me)
-    echo $public_ip
+    # 尝试获取IPv4地址
+    public_ip=$(curl -s4 ifconfig.me)
+    
+    # 如果获取不到IPv4地址，再尝试获取IPv6地址
+    if [ -z "$public_ip" ]; then
+        public_ip=$(curl -s6 ifconfig.me)
+    fi
+
+    echo "$public_ip"
 }
 
 # 服务容器的配置
