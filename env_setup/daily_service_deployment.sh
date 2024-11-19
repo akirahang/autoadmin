@@ -40,8 +40,23 @@ deploy_service() {
             echo "AdGuardHome 服务已部署，访问地址：http://$(get_public_ip):3000"
             ;;
         "Alist - 文件管理工具")
+            # 启动 Alist 服务
             docker run -d --name alist -p 5244:5244 -p 6800:6800 xhofe/alist-aria2
+            
+            # 等待容器启动并查看日志，假设 Alist 容器启动时会显示默认的账户和密码
+            echo "Alist 服务正在启动，请稍候..."
+            sleep 5  # 等待容器完全启动
+            
+            # 获取容器的日志并提取账户和密码信息
+            account_info=$(docker logs alist 2>&1 | grep -E "username|password" | head -n 5)
+            
             echo "Alist 服务已部署，访问地址：http://$(get_public_ip):5244"
+            if [ -n "$account_info" ]; then
+                echo "以下是您的账户和密码信息（从日志中提取）:"
+                echo "$account_info"
+            else
+                echo "未能从日志中提取账户和密码信息，请检查 Alist 容器日志以获取详细信息。"
+            fi
             ;;
         "Calibre Web - 电子书管理工具")
             docker run -d --name calibre-web -p 8083:8083 lscr.io/linuxserver/calibre-web
