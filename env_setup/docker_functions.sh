@@ -53,8 +53,21 @@ manage_docker_container() {
             docker stop "$container_id" || echo "停止失败。"
             ;;
         remove)
+            # 删除容器挂载的目录
             echo "正在删除容器 $container_name (ID: $container_id)..."
-            docker rm "$container_id" || echo "删除失败。"
+            echo "正在列出容器的挂载目录..."
+            mounts=$(docker inspect "$container_id" | jq -r '.[].Mounts[] | select(.Type=="bind") | .Source')
+            
+            # 删除挂载的目录
+            for mount in $mounts; do
+                if [ -d "$mount" ]; then
+                    echo "正在删除挂载目录：$mount"
+                    rm -rf "$mount" || echo "删除目录 $mount 失败。"
+                fi
+            done
+
+            # 删除容器
+            docker rm "$container_id" || echo "删除容器失败。"
             ;;
         *)
             echo "无效的操作。"
@@ -62,7 +75,6 @@ manage_docker_container() {
     esac
     pause
 }
-
 
 # WebDAV 配置路径
 WEBDAV_CONFIG_PATH="/root/.config/rclone/rclone.conf"
