@@ -108,14 +108,11 @@ deploy_cloud_service() {
     fi
 
     echo "正在下载配置文件..."
+    # 下载配置文件
     curl -fsSL "$compose_url" -o "$compose_file" || { echo "配置文件下载失败，请检查链接。"; pause; return; }
 
     echo "配置文件已成功下载到 $compose_file"
     echo "正在解析服务列表..."
-
-    # 打印docker-compose config内容以调试
-    echo "docker-compose解析的内容："
-    docker-compose -f "$compose_file" config
 
     # 使用 docker-compose config 获取服务名称
     services=$(docker-compose -f "$compose_file" config --services)
@@ -138,7 +135,7 @@ deploy_cloud_service() {
         return
     fi
 
-    selected_service=${service_array[$((service_index - 1))]}}
+    selected_service=${service_array[$((service_index - 1))]}
     echo "正在部署服务: $selected_service"
 
     # 部署选定服务
