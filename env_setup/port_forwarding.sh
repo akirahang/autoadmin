@@ -105,7 +105,7 @@ port_forwarding_menu() {
 }
 
 # 主菜单
-main_menu() {
+port_forwarding_menu() {
     while true; do
         clear
         echo "==============================="
@@ -124,5 +124,3 @@ main_menu() {
     done
 }
 
-# 启动主菜单
-main_menu
