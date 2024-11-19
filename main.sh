@@ -1,3 +1,4 @@
+#!/bin/bash
 # 引用 functions.sh、docker_functions.sh 和 crontab.sh
 source ./env_setup/functions.sh
 source ./env_setup/docker_functions.sh
