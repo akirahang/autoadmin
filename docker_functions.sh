@@ -107,31 +107,32 @@ deploy_cloud_service() {
     echo "配置文件已成功下载到 $compose_file"
     echo "正在解析服务列表..."
 
-    # 提取服务名称
-    mapfile -t services < <(yq e '.services | keys | .[]' "$compose_file")
-    if [ ${#services[@]} -eq 0 ]; then
+    # 使用 docker-compose config 获取服务名称
+    services=$(docker-compose -f "$compose_file" config --services)
+    if [ -z "$services" ]; then
         echo "未检测到任何服务，请检查配置文件内容。"
         pause
         return
     fi
 
     echo "以下是可用的服务列表："
-    for i in "${!services[@]}"; do
-        echo "$((i + 1)). ${services[i]}"
+    IFS=$'\n' read -r -d '' -a service_array <<< "$services"
+    for i in "${!service_array[@]}"; do
+        echo "$((i + 1)). ${service_array[i]}"
     done
 
     read -p "请选择要部署的服务序号: " service_index
-    if ! [[ "$service_index" =~ ^[0-9]+$ ]] || [ "$service_index" -le 0 ] || [ "$service_index" -gt ${#services[@]} ]; then
+    if ! [[ "$service_index" =~ ^[0-9]+$ ]] || [ "$service_index" -le 0 ] || [ "$service_index" -gt ${#service_array[@]} ]; then
         echo "无效的选择，请重试。"
         pause
         return
     fi
 
-    selected_service=${services[$((service_index - 1))]}
+    selected_service=${service_array[$((service_index - 1))]}
     echo "正在部署服务: $selected_service"
 
     # 部署选定服务
-    docker compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
+    docker-compose -f "$compose_file" up -d "$selected_service" 2>/tmp/docker_error.log
     if [ $? -eq 0 ]; then
         echo "服务 $selected_service 部署成功。"
         echo "服务端口："
@@ -147,3 +148,4 @@ deploy_cloud_service() {
 pause() {
     read -p "按 Enter 键继续..."
 }
+
