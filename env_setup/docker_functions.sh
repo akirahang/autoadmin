@@ -2,10 +2,7 @@
 
 # WebDAV 配置路径
 WEBDAV_CONFIG_PATH="/root/.config/rclone/rclone.conf"
-WEBDAV_REMOTE="webdav_remote"  # WebDAV 远程配置名称
-
-# 定期备份的 Cron 配置文件路径
-CRON_FILE="/etc/cron.d/container_backup"
+WEBDAV_REMOTE="webdav_remote"  # 默认的 WebDAV 远程配置名称
 
 # 检查 rclone 是否安装
 check_rclone_installed() {
@@ -17,48 +14,41 @@ check_rclone_installed() {
     return 0
 }
 
-# 检查 WebDAV 配置是否存在
-check_webdav_config() {
-    if [ ! -f "$WEBDAV_CONFIG_PATH" ]; then
-        echo "未检测到 WebDAV 配置，请创建配置。"
-        return 1
-    fi
-    echo "WebDAV 配置已存在"
-    return 0
-}
-
-# 创建 WebDAV 配置
-create_webdav_config() {
-    echo "开始创建 WebDAV 配置..."
-    rclone config create "$WEBDAV_REMOTE" webdav \
-        url "https://your-webdav-url" \
-        user "your-username" \
-        pass "your-password" \
-        --config "$WEBDAV_CONFIG_PATH" || {
-            echo "WebDAV 配置创建失败，请检查输入。"
-            return 1
-        }
-    echo "WebDAV 配置创建成功！"
-    return 0
+# 获取 WebDAV 配置
+get_webdav_configs() {
+    rclone config show | grep -i "webdav" -B 3
 }
 
 # 选择 WebDAV 配置
 choose_webdav_config() {
-    echo "请选择已有的 WebDAV 配置："
-    rclone config list || {
-        echo "未能列出配置，请确保配置正确。"
-        return 1
-    }
+    # 获取 WebDAV 配置
+    webdav_configs=$(rclone config show | grep -i "webdav" -B 3 | grep "name" | awk '{print $2}')
 
-    read -p "请输入要使用的 WebDAV 配置名称: " chosen_config
-    # 检查用户输入的配置是否有效
-    rclone config file "$chosen_config" &>/dev/null || {
-        echo "配置无效，请检查配置名称。"
+    # 如果没有 WebDAV 配置
+    if [ -z "$webdav_configs" ]; then
+        echo "未检测到 WebDAV 配置，请创建 WebDAV 配置。"
         return 1
-    }
+    fi
 
-    echo "您选择的配置是：$chosen_config"
-    return 0
+    # 如果只有一个 WebDAV 配置，直接使用该配置
+    if [ $(echo "$webdav_configs" | wc -l) -eq 1 ]; then
+        selected_config=$(echo "$webdav_configs" | head -n 1)
+        echo "只有一个 WebDAV 配置，自动选择：$selected_config"
+        WEBDAV_REMOTE="$selected_config"
+        return 0
+    fi
+
+    # 如果有多个配置，提供交互式选择
+    echo "检测到多个 WebDAV 配置，请选择一个："
+    select config in $webdav_configs; do
+        if [ -n "$config" ]; then
+            WEBDAV_REMOTE="$config"
+            echo "您选择的 WebDAV 配置是：$config"
+            break
+        else
+            echo "无效的选择，请重新选择。"
+        fi
+    done
 }
 
 # 容器备份到 WebDAV
@@ -66,19 +56,7 @@ backup_container_to_webdav() {
     # 确保 rclone 已安装
     check_rclone_installed || exit 1
 
-    # 检查 WebDAV 配置是否存在
-    if ! check_webdav_config; then
-        # 如果没有配置，询问用户是否创建配置
-        read -p "是否创建新的 WebDAV 配置? (y/n): " create_choice
-        if [ "$create_choice" = "y" ]; then
-            create_webdav_config || exit 1
-        else
-            echo "无法继续，没有有效的 WebDAV 配置。"
-            exit 1
-        fi
-    fi
-
-    # 选择配置
+    # 选择 WebDAV 配置
     choose_webdav_config || exit 1
 
     # 获取要备份的容器信息
@@ -173,7 +151,7 @@ set_scheduled_backup() {
     # 添加 Cron 任务
     for mount_dir in $mounts; do
         if [ -d "$mount_dir" ]; then
-            echo "$cron_time root rclone copy $mount_dir $WEBDAV_REMOTE:$webdav_path --progress" >> $CRON_FILE
+            echo "$cron_time root rclone copy $mount_dir $WEBDAV_REMOTE:$webdav_path --progress" >> /etc/cron.d/container_backup
         fi
     done
     echo "定期备份任务已设置。"
