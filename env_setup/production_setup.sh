@@ -1,17 +1,15 @@
 #!/bin/bash
 
-# 生产环境部署功能模块
-
-# 部署 Nginx 服务
+# 部署 Nginx Proxy Manager
 deploy_nginx() {
-    echo "开始部署 Nginx..."
+    echo "开始部署 Nginx Proxy Manager..."
+    mkdir -p /root/data /root/letsencrypt
     docker run -d --name nginx \
-        -p 80:80 -p 443:443 \
-        -v /root/nginx/conf:/etc/nginx/conf.d \
-        -v /root/nginx/logs:/var/log/nginx \
-        -v /root/nginx/html:/usr/share/nginx/html \
-        --restart unless-stopped nginx || { echo "Nginx 部署失败"; exit 1; }
-    echo "Nginx 部署完成！"
+        --network host \
+        -v /root/data:/data \
+        -v /root/letsencrypt:/etc/letsencrypt \
+        --restart unless-stopped jc21/nginx-proxy-manager || { echo "Nginx 部署失败"; exit 1; }
+    echo "Nginx Proxy Manager 部署完成！"
     pause
 }
 
@@ -19,12 +17,13 @@ deploy_nginx() {
 deploy_mysql() {
     echo "开始部署 MySQL..."
     read -p "请输入 MySQL root 密码: " MYSQL_ROOT_PASSWORD
+    mkdir -p /root/mysql/data /root/mysql/conf
     docker run -d --name mysql \
         -p 3306:3306 \
+        -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
         -v /root/mysql/data:/var/lib/mysql \
         -v /root/mysql/conf:/etc/mysql/conf.d \
-        -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
-        --restart unless-stopped mysql:8.0 || { echo "MySQL 部署失败"; exit 1; }
+        --restart unless-stopped mysql:5.7 || { echo "MySQL 部署失败"; exit 1; }
     echo "MySQL 部署完成！"
     pause
 }
@@ -32,10 +31,14 @@ deploy_mysql() {
 # 部署 Redis 服务
 deploy_redis() {
     echo "开始部署 Redis..."
+    read -p "请输入 Redis 密码: " REDIS_PASSWORD
+    mkdir -p /root/redis
     docker run -d --name redis \
         -p 6379:6379 \
-        -v /root/redis/data:/data \
-        --restart unless-stopped redis:latest || { echo "Redis 部署失败"; exit 1; }
+        --restart always \
+        -v /root/redis:/data \
+        redis:latest \
+        redis-server --save 60 1 --loglevel warning --requirepass "$REDIS_PASSWORD" || { echo "Redis 部署失败"; exit 1; }
     echo "Redis 部署完成！"
     pause
 }
@@ -47,7 +50,7 @@ production_deployment_menu() {
         echo "==============================="
         echo "    生产环境部署功能菜单       "
         echo "==============================="
-        echo "1. 部署 Nginx"
+        echo "1. 部署 Nginx Proxy Manager"
         echo "2. 部署 MySQL"
         echo "3. 部署 Redis"
         echo "4. 返回主菜单"
