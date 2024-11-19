@@ -120,5 +120,7 @@ daily_service_deployment_menu() {
     done
 }
 
-# 启动部署菜单
-daily_service_deployment_menu
+# 暂停等待用户按键
+pause() {
+    read -p "按 Enter 键继续..."
+}
