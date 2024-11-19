@@ -6,7 +6,8 @@
 . ./env_setup/crontab.sh
 . ./env_setup/vpn_functions.sh
 . ./env_setup/webdav_functions.sh
-. ./env_setup/port_forwarding.sh
+. ./env_setup/port_forwarding.sh 
+. ./env_setup/production_setup.sh
 
 show_main_menu() {
     while true; do
