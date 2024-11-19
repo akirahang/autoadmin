@@ -55,8 +55,9 @@ install_wireguard_easy() {
     # 交互式获取配置参数
     read -p "请输入公网 IP: " WG_HOST
     read -p "请输入 WireGuard 管理账户密码: " WG_PASSWORD
-    read -p "请输入 WireGuard 服务端口 (默认 51820): " WG_PORT
-    WG_PORT=${WG_PORT:-51820}
+
+    # 默认 WireGuard 服务端口
+    WG_PORT=51820
 
     # 创建 WireGuard-Easy 配置目录
     mkdir -p /root/wireguard
@@ -90,7 +91,11 @@ EOF
     cd /root/wireguard
     docker compose up -d || { echo "启动 WireGuard-Easy 容器失败"; exit 1; }
 
-    echo "WireGuard-Easy 安装完成！"
+    echo "WireGuard-Easy 安装完成！请使用以下信息进行管理："
+    echo "  - 公网 IP: ${WG_HOST}"
+    echo "  - 管理密码: ${WG_PASSWORD}"
+    echo "  - 服务端口: ${WG_PORT}"
+    echo "请访问 http://${WG_HOST}:51821 管理 WireGuard"
 }
 
 # 内网端口转发管理菜单
