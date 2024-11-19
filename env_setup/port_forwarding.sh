@@ -1,15 +1,23 @@
 #!/bin/bash
 
-# 获取本机公网 IP
+# 获取本机公网 IP，优先使用 IPv4
 get_public_ip() {
-    # 使用第三方服务查询公网 IP
-    curl -s http://whatismyip.akamai.com || curl -s https://api.ipify.org || { echo "无法自动获取公网 IP，请手动输入"; read -p "请输入公网 IP: " MANUAL_IP; echo "$MANUAL_IP"; }
+    # 尝试获取 IPv4 地址
+    public_ip=$(curl -s4 http://whatismyip.akamai.com || curl -s4 https://api.ipify.org)
+    
+    # 如果没有 IPv4 地址，则尝试获取 IPv6 地址
+    if [ -z "$public_ip" ]; then
+        public_ip=$(curl -s6 http://whatismyip.akamai.com || curl -s6 https://api.ipify.org)
+    fi
+
+    # 返回公网 IP 地址
+    echo "$public_ip"
 }
 
 # NPS 安装和配置
 install_nps() {
     echo "开始安装 NPS..."
-    
+
     # 设置 NPS 项目路径
     NPS_DIR="/root/nps"
 
@@ -56,13 +64,15 @@ install_nps() {
     # 运行 Docker 容器
     docker run -d --name nps --net=host -v "$NPS_DIR/conf":/conf --restart=always npscn/nps || { echo "启动 NPS 容器失败"; exit 1; }
 
+    # 显示访问地址并提示用户按 Enter 键退出
     echo "NPS 容器已启动，请访问 http://${web_ip}:${http_proxy_port} 进行管理"
+    pause
 }
 
 # WireGuard-Easy 安装和配置
 install_wireguard_easy() {
     echo "开始安装 WireGuard-Easy..."
-    
+
     # 检查 Docker 是否已安装
     command -v docker >/dev/null 2>&1 || { echo "请先安装 Docker"; exit 1; }
 
@@ -108,11 +118,13 @@ EOF
     cd /root/wireguard
     docker compose up -d || { echo "启动 WireGuard-Easy 容器失败"; exit 1; }
 
+    # 显示访问地址并提示用户按 Enter 键退出
     echo "WireGuard-Easy 安装完成！请使用以下信息进行管理："
     echo "  - 公网 IP: ${public_ip}"
     echo "  - 管理密码: ${WG_PASSWORD}"
     echo "  - 服务端口: ${WG_PORT}"
     echo "请访问 http://${public_ip}:51821 管理 WireGuard"
+    pause
 }
 
 # 内网端口转发管理菜单
