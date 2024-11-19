@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 快速部署菜单
-quick_deploy_menu() {
+system_maintenance_menu() {
     while true; do
         clear
         echo "==============================="
