@@ -6,6 +6,7 @@ source ./env_setup/docker_functions.sh
 source ./env_setup/crontab.sh
 source ./env_setup/vpn_functions.sh
 source ./env_setup/webdav_functions.sh
+source ./env_setup/port_forwarding.sh
 
 # 主菜单函数
 show_main_menu() {
