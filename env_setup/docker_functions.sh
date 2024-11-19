@@ -189,7 +189,7 @@ restore_container_from_backup() {
 }
 
 # 主菜单
-main_menu() {
+show_docker_menu() {
     while true; do
         clear
         echo "==============================="
