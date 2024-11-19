@@ -67,7 +67,7 @@ install_wireguard_easy() {
 version: '3.3'
 services:
   wg-easy:
-    image: ghcr.io/wg-easy/wg-easy
+    image: weejewel/wg-easy
     container_name: wg-easy
     environment:
       - WG_HOST=${WG_HOST}
