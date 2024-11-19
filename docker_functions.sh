@@ -113,6 +113,10 @@ deploy_cloud_service() {
     echo "配置文件已成功下载到 $compose_file"
     echo "正在解析服务列表..."
 
+    # 打印docker-compose config内容以调试
+    echo "docker-compose解析的内容："
+    docker-compose -f "$compose_file" config
+
     # 使用 docker-compose config 获取服务名称
     services=$(docker-compose -f "$compose_file" config --services)
     if [ -z "$services" ]; then
