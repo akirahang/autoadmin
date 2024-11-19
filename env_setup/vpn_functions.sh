@@ -1,15 +1,52 @@
 #!/bin/bash
 
-# 科学上网功能：x-ui 一键部署
+# 科学上网功能：x-ui 一键部署（基于 Docker Compose v2）
+
 deploy_x_ui() {
     echo "正在部署 x-ui..."
-    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh) || {
-        echo "x-ui 部署失败，请检查网络或脚本链接。"
+    
+    # 创建 x-ui 的工作目录
+    XUI_DIR="/root/xui"
+    mkdir -p "$XUI_DIR/db" "$XUI_DIR/cert"
+
+    # 创建 docker-compose.yml 配置文件
+    cat > "$XUI_DIR/docker-compose.yml" <<EOF
+version: '3'
+services:
+  xui:
+    image: enwaiax/x-ui:alpha-zh
+    container_name: xui
+    volumes:
+      - $XUI_DIR/db:/etc/x-ui
+      - $XUI_DIR/cert:/root/cert
+    restart: unless-stopped
+    network_mode: host
+EOF
+
+    # 检查是否已经安装 Docker 和 Docker Compose
+    if ! command -v docker &>/dev/null; then
+        echo "Docker 没有安装，请先安装 Docker。"
         pause
+        return
+    fi
+
+    if ! command -v docker-compose &>/dev/null && ! command -v "docker compose" &>/dev/null; then
+        echo "Docker Compose 没有安装，请先安装 Docker Compose v2。"
+        pause
+        return
+    fi
+
+    # 使用 Docker Compose v2 启动服务
+    cd "$XUI_DIR" && docker compose up -d || {
+        echo "x-ui 部署失败，请检查网络或配置文件。"
+        pause
+        return
     }
-    echo "x-ui 部署完成。"
+
+    echo "x-ui 部署完成，可以通过访问主机的相应端口进行管理。"
     pause
 }
+
 
 # 科学上网功能：xboard 一键部署
 deploy_xboard() {
