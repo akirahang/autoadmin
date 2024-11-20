@@ -70,22 +70,33 @@ deploy_service() {
                 return 1
             fi
 
-            CONFIG_FILE="$MAPPED_DIR/config.json"
-            if [ -f "$CONFIG_FILE" ]; then
-                echo "正在修改配置文件..."
-                jq ".database.type=\"mysql\" |
-                    .database.host=\"$DB_HOST\" |
-                    .database.port=$DB_PORT |
-                    .database.user=\"$DB_USER\" |
-                    .database.password=\"$DB_PASS\" |
-                    .database.name=\"$DB_NAME\"" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" \
-                && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-                echo "配置文件修改完成。"
-            else
-                echo "未找到配置文件，请检查容器状态或映射目录：$MAPPED_DIR"
-            fi
+            # 确认容器正在运行
+            while ! docker ps -q -f name=alist; do
+                echo "容器启动中，请稍等..."
+                sleep 5
+            done
 
-            # 重启容器
+            # 等待容器中的配置文件生成
+            CONFIG_FILE="$MAPPED_DIR/config.json"
+            echo "等待配置文件生成..."
+            while [ ! -f "$CONFIG_FILE" ]; do
+                echo "配置文件尚未生成，等待 10 秒..."
+                sleep 10
+            done
+
+            echo "配置文件已找到，正在修改配置文件..."
+
+            # 修改配置文件
+            jq ".database.type=\"mysql\" |
+                .database.host=\"$DB_HOST\" |
+                .database.port=$DB_PORT |
+                .database.user=\"$DB_USER\" |
+                .database.password=\"$DB_PASS\" |
+                .database.name=\"$DB_NAME\"" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" \
+            && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+            echo "配置文件修改完成。"
+
+            # 重启容器以应用新配置
             echo "正在重启容器以应用新的配置..."
             docker restart alist
             echo "容器已重启，服务已更新。"
