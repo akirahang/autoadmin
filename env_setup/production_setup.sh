@@ -14,7 +14,6 @@ get_public_ip() {
     echo "$public_ip"
 }
 
-# 部署 phpMyAdmin 服务（传输大小无限制）
 deploy_phpmyadmin() {
     echo "开始部署 phpMyAdmin..."
     read -p "请输入 MySQL 数据库的 IP 地址或主机名（例如 127.0.0.1 或 mydb.example.com）: " MYSQL_HOST
@@ -24,13 +23,9 @@ deploy_phpmyadmin() {
         -e PMA_ARBITRARY=1 \
         -p 8080:80 \
         --restart unless-stopped \
-        -v /root/phpmyadmin/uploads:/usr/local/etc/php/conf.d \
+        -e PHP_UPLOAD_MAX_FILESIZE=0 \
+        -e PHP_POST_MAX_SIZE=0 \
         phpmyadmin || { echo "phpMyAdmin 部署失败"; exit 1; }
-
-    # 创建 PHP 配置文件以设置上传和导入大小限制
-    mkdir -p /root/phpmyadmin/uploads
-    echo "upload_max_filesize = 0" > /root/phpmyadmin/uploads/uploads.ini
-    echo "post_max_size = 0" >> /root/phpmyadmin/uploads/uploads.ini
 
     # 获取本机公网 IP
     local public_ip=$(get_public_ip)
