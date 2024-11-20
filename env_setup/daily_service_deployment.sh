@@ -101,15 +101,6 @@ deploy_service() {
             fi
             pause
             ;;
-        # 其他服务部署命令保持一致
-        *)
-            echo "未知服务，请重新选择。" >&2
-            ;;            
-        "Calibre Web - 电子书管理工具")
-            docker run -d --name calibre-web -p 8083:8083 lscr.io/linuxserver/calibre-web
-            echo "Calibre Web 服务已部署，访问地址：http://$(get_public_ip):8083"
-            pause
-            ;;
         "qBittorrent - 下载工具")
             docker run -d --name qbittorrent -p 8080:8080 -p 6881:6881 lscr.io/linuxserver/qbittorrent
             echo "qBittorrent 服务已部署，访问地址：http://$(get_public_ip):8080"
@@ -121,8 +112,37 @@ deploy_service() {
             pause
             ;;
         "Vaultwarden - 密码管理")
-            docker run -d --name vaultwarden -p 86:80 vaultwarden/server:latest
-            echo "Vaultwarden 服务已部署，访问地址：http://$(get_public_ip):86"
+            # 提示用户输入数据库连接信息
+            echo "请输入数据库连接信息："
+            read -p "数据库地址（默认：localhost）： " DB_HOST
+            DB_HOST=${DB_HOST:-localhost}
+
+            read -p "数据库端口（默认：3306）： " DB_PORT
+            DB_PORT=${DB_PORT:-3306}
+
+            read -p "数据库用户名（默认：root）： " DB_USER
+            DB_USER=${DB_USER:-root}
+
+            read -sp "数据库密码： " DB_PASS
+            echo
+
+            read -p "数据库名称（默认：vaultwarden）： " DB_NAME
+            DB_NAME=${DB_NAME:-vaultwarden}
+
+            # 创建 Vaultwarden 容器，并设置环境变量连接数据库
+            docker run -d \
+                --name vaultwarden \
+                -p 86:80 \
+                -e DATABASE_URL="mysql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME" \
+                vaultwarden/server:latest
+
+            # 检查容器是否启动成功
+            if [ $? -eq 0 ]; then
+                echo "Vaultwarden 服务已部署，访问地址：http://$(get_public_ip):86"
+            else
+                echo "Vaultwarden 服务部署失败！" >&2
+            fi
+
             pause
             ;;
         "Photoprism - 照片管理工具")
@@ -157,7 +177,7 @@ deploy_service() {
             pause
             ;;
         *)
-            echo "未知服务，请重新选择。"
+            echo "未知服务，请重新选择。" >&2
             ;;
     esac
 }
