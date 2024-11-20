@@ -18,14 +18,31 @@ deploy_phpmyadmin() {
     echo "开始部署 phpMyAdmin..."
     read -p "请输入 MySQL 数据库的 IP 地址或主机名（例如 127.0.0.1 或 mydb.example.com）: " MYSQL_HOST
 
+    # 部署 phpMyAdmin 服务，不再通过环境变量设置上传大小
     docker run -d --name phpmyadmin \
         -e PMA_HOST=$MYSQL_HOST \
         -e PMA_ARBITRARY=1 \
         -p 8080:80 \
         --restart unless-stopped \
-        -e PHP_UPLOAD_MAX_FILESIZE=10G \
-        -e PHP_POST_MAX_SIZE=10G \
         phpmyadmin || { echo "phpMyAdmin 部署失败"; exit 1; }
+
+    # 获取容器 ID
+    PHP_CONTAINER_ID=$(docker ps -q -f "name=phpmyadmin")
+
+    # 进入容器并检查配置文件是否存在
+    echo "正在修改上传限制..."
+    docker exec -it $PHP_CONTAINER_ID bash -c "
+        # 检查配置文件是否存在，如果不存在则创建
+        if [ ! -f /usr/local/etc/php/conf.d/uploads.ini ]; then
+            touch /usr/local/etc/php/conf.d/uploads.ini;
+        fi
+
+        # 修改上传文件大小限制
+        echo 'upload_max_filesize = 10G' >> /usr/local/etc/php/conf.d/uploads.ini;
+        echo 'post_max_size = 10G' >> /usr/local/etc/php/conf.d/uploads.ini;"
+
+    # 重启容器以使更改生效
+    docker restart phpmyadmin
 
     # 获取本机公网 IP
     local public_ip=$(get_public_ip)
