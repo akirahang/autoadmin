@@ -23,8 +23,8 @@ deploy_phpmyadmin() {
         -e PMA_ARBITRARY=1 \
         -p 8080:80 \
         --restart unless-stopped \
-        -e PHP_UPLOAD_MAX_FILESIZE=0 \
-        -e PHP_POST_MAX_SIZE=0 \
+        -e PHP_UPLOAD_MAX_FILESIZE=10G \
+        -e PHP_POST_MAX_SIZE=10G \
         phpmyadmin || { echo "phpMyAdmin 部署失败"; exit 1; }
 
     # 获取本机公网 IP
