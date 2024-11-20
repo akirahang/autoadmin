@@ -6,6 +6,14 @@ REPO_URL="https://github.com/akirahang/autoadmin.git"
 # 设置根目录下的目标文件夹名
 TARGET_DIR="/root/autoadmin"
 
+# 检测是否安装了 git
+if ! command -v git &>/dev/null; then
+    echo "git 未安装，正在安装 git..."
+    sudo apt update && sudo apt install -y git || { echo "安装 git 失败"; exit 1; }
+else
+    echo "git 已安装"
+fi
+
 # 切换到 root 用户的根目录
 cd /root || { echo "无法切换到根目录"; exit 1; }
 
@@ -39,3 +47,4 @@ else
     echo "main.sh 文件不存在，无法运行"
     exit 1
 fi
+
