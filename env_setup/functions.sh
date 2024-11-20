@@ -102,5 +102,4 @@ enable_root_ssh_login() {
     fi
 }
 
-# 执行快速部署
-quick_setup
+
