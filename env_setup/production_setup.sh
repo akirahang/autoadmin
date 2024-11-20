@@ -14,6 +14,24 @@ get_public_ip() {
     echo "$public_ip"
 }
 
+# 部署 phpMyAdmin 服务
+deploy_phpmyadmin() {
+    echo "开始部署 phpMyAdmin..."
+    docker run -d --name phpmyadmin \
+        -e PMA_ARBITRARY=1 \
+        -p 8080:80 \
+        --restart unless-stopped \
+        phpmyadmin || { echo "phpMyAdmin 部署失败"; exit 1; }
+
+    # 获取本机公网 IP
+    local public_ip=$(get_public_ip)
+    echo "phpMyAdmin 部署完成！请访问以下地址："
+    echo "  - URL: http://${public_ip}:8080"
+    echo "phpMyAdmin 已启用任意主机连接模式，请在界面中配置外部数据库信息。"
+
+    pause
+}
+
 # 部署 Nginx Proxy Manager
 deploy_nginx() {
     echo "开始部署 Nginx Proxy Manager..."
@@ -75,7 +93,7 @@ deploy_redis() {
     pause
 }
 
-# 生产环境部署菜单
+# 修改生产环境部署菜单，添加 phpMyAdmin 选项
 production_deployment_menu() {
     while true; do
         clear
@@ -85,19 +103,22 @@ production_deployment_menu() {
         echo "1. 部署 Nginx Proxy Manager"
         echo "2. 部署 MySQL"
         echo "3. 部署 Redis"
-        echo "4. 返回主菜单"
+        echo "4. 部署 phpMyAdmin"
+        echo "5. 返回主菜单"
         echo "==============================="
-        read -p "请选择一个选项 (1-4): " choice
+        read -p "请选择一个选项 (1-5): " choice
 
         case $choice in
-            1) deploy_nginx ;;   # 部署 Nginx 服务
-            2) deploy_mysql ;;   # 部署 MySQL 服务
-            3) deploy_redis ;;   # 部署 Redis 服务
-            4) return ;;         # 返回主菜单
+            1) deploy_nginx ;;        # 部署 Nginx 服务
+            2) deploy_mysql ;;        # 部署 MySQL 服务
+            3) deploy_redis ;;        # 部署 Redis 服务
+            4) deploy_phpmyadmin ;;   # 部署 phpMyAdmin 服务
+            5) return ;;              # 返回主菜单
             *) echo "无效选项，请重试"; sleep 2 ;;
         esac
     done
 }
+
 
 # 暂停等待用户操作
 pause() {
