@@ -42,10 +42,69 @@ deploy_service() {
             pause
             ;;
         "Alist - 文件管理工具")
-            docker run -d --name alist -p 5244:5244 -p 6800:6800 xhofe/alist-aria2
-            echo "Alist 服务已部署，访问地址：http://$(get_public_ip):5244"
+            MAPPED_DIR="/root/alist/"
+            mkdir -p "$MAPPED_DIR"
+
+            # 提示用户输入数据库连接信息
+            echo "请输入数据库连接信息："
+            read -p "数据库地址（默认：localhost）： " DB_HOST
+            DB_HOST=${DB_HOST:-localhost}
+
+            read -p "数据库端口（默认：3306）： " DB_PORT
+            DB_PORT=${DB_PORT:-3306}
+
+            read -p "数据库用户名（默认：root）： " DB_USER
+            DB_USER=${DB_USER:-root}
+
+            read -sp "数据库密码： " DB_PASS
+            echo
+            read -p "数据库名称（默认：alist）： " DB_NAME
+            DB_NAME=${DB_NAME:-alist}
+
+            # 启动 Alist 容器
+            docker run -d --name alist -p 5244:5244 -p 6800:6800 -v "$MAPPED_DIR:/opt/alist/" xhofe/alist-aria2
+            if [ $? -eq 0 ]; then
+                echo "Alist 服务已部署，访问地址：http://$(get_public_ip):5244"
+            else
+                echo "Alist 服务部署失败！" >&2
+                return 1
+            fi
+
+            CONFIG_FILE="$MAPPED_DIR/config.json"
+            if [ -f "$CONFIG_FILE" ]; then
+                echo "正在修改配置文件..."
+                jq ".database.type=\"mysql\" |
+                    .database.host=\"$DB_HOST\" |
+                    .database.port=$DB_PORT |
+                    .database.user=\"$DB_USER\" |
+                    .database.password=\"$DB_PASS\" |
+                    .database.name=\"$DB_NAME\"" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" \
+                && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+                echo "配置文件修改完成。"
+            else
+                echo "未找到配置文件，请检查容器状态或映射目录：$MAPPED_DIR"
+            fi
+
+            # 重启容器
+            echo "正在重启容器以应用新的配置..."
+            docker restart alist
+            echo "容器已重启，服务已更新。"
+
             pause
             ;;
+        "Calibre Web - 电子书管理工具")
+            docker run -d --name calibre-web -p 8083:8083 lscr.io/linuxserver/calibre-web
+            if [ $? -eq 0 ]; then
+                echo "Calibre Web 服务已部署，访问地址：http://$(get_public_ip):8083"
+            else
+                echo "Calibre Web 服务部署失败！" >&2
+            fi
+            pause
+            ;;
+        # 其他服务部署命令保持一致
+        *)
+            echo "未知服务，请重新选择。" >&2
+            ;;            
         "Calibre Web - 电子书管理工具")
             docker run -d --name calibre-web -p 8083:8083 lscr.io/linuxserver/calibre-web
             echo "Calibre Web 服务已部署，访问地址：http://$(get_public_ip):8083"
