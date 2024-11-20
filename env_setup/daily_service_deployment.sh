@@ -62,7 +62,7 @@ deploy_service() {
             DB_NAME=${DB_NAME:-alist}
 
             # 启动 Alist 容器
-            docker run -d --name alist -p 5244:5244 -p 6800:6800 -v "$MAPPED_DIR:/opt/alist/" xhofe/alist-aria2
+            docker run -d --name alist -p 5244:5244 -p 6800:6800 -v "$MAPPED_DIR:/opt/alist/data" xhofe/alist
             if [ $? -eq 0 ]; then
                 echo "Alist 服务已部署，访问地址：http://$(get_public_ip):5244"
             else
