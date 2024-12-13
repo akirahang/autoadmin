@@ -62,7 +62,7 @@ install_nps() {
     sed -i "s/^auth_crypt_key=.*$/auth_crypt_key=${auth_crypt_key}/" conf/nps.conf
 
     # 运行 Docker 容器
-    docker run -d --name nps --net=host -v "$NPS_DIR/conf":/conf --restart=always npscn/nps || { echo "启动 NPS 容器失败"; exit 1; }
+    docker run -d --name nps --net=host -v "$NPS_DIR/conf":/conf --restart=always yisier1/nps || { echo "启动 NPS 容器失败"; exit 1; }
 
     # 显示访问地址并提示用户按 Enter 键退出
     echo "NPS 容器已启动，请访问 http://${web_ip}:${http_proxy_port} 进行管理"
