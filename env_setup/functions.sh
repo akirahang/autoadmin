@@ -46,8 +46,7 @@ quick_setup() {
         echo "1. 更新系统并安装基本依赖..."
         case $os_type in
                 ubuntu | debian)
-                        sudo apt update -y && sudo apt upgrade -y
-                        sudo apt install -y sudo neofetch vim jq curl yq
+                        sudo apt update -y && sudo apt install -y sudo neofetch vim jq curl yq && sudo apt upgrade -y
                         ;;
                 *)
                         echo "当前系统不支持，请手动安装依赖。"
